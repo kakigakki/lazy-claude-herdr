@@ -1,0 +1,61 @@
+# ~/.config/lazy-claude-herdr/config.toml — every key is optional.
+
+language = "en"            # en | ja | zh
+
+[defaults]
+days = 14                  # period shown when the picker opens; 0 = all retained sessions
+sort = "recent"            # recent | env | live
+
+[review_request]
+# {title} {url} {number} come from the session's pull request (`gh pr view`).
+template = "Please review: {title}\n{url}"
+
+# How a session directory is shown. `match` is a path or glob; subdirectories match too.
+# Declaration order is the order of the "by environment" sort.
+# Colors: black red green yellow blue magenta cyan white gray, or "ansi:<SGR>" e.g. "ansi:38;5;208".
+[[envs]]
+match = "~/code/shop"
+label = "shop"
+color = "blue"
+
+[[envs]]
+match = "~/code/shop-*"    # git worktrees: shop-feature-x, shop-hotfix, ...
+label = "shop-wt"
+color = "cyan"
+
+[[envs]]
+match = "~/.herdr/worktrees/*"
+label = "herdr-wt"
+color = "gray"
+
+# Your own menu actions. Variables (shell-quoted on substitution):
+#   {id} {cwd} {branch} {pr} {pr_url} {pr_repo} {title}
+# They are also exported as LCH_ID, LCH_CWD, LCH_BRANCH, ... Commands run with
+# /bin/sh in the session's directory.
+#
+#   mode = "background"  run detached, return to the list (default)
+#          "pane"        run in a new herdr pane in the session's space
+#          "pager"       show the command's output in less
+#   requires = [...]     hide the item when any of these variables is empty
+#   when = "..."         hide the item unless this command exits 0 (run in the session's directory)
+#   direct = "ctrl-x"    also bind a key in the list (ctrl-x / alt-x / f5; not a built-in key)
+#   close = true         a background action also closes the picker
+
+[[actions]]
+key = "g"
+label = "Open lazygit here"
+run = "lazygit"
+mode = "pane"
+
+[[actions]]
+key = "e"
+label = "Open the app in browser (port from .env)"
+run = "open \"http://localhost:$(sed -n 's/^PORT=//p' .env | head -1 | grep . || echo 3000)/\""
+when = "test -f .env"
+
+[[actions]]
+key = "d"
+label = "Show the PR diff"
+run = "gh pr diff {pr_url} --color always"
+mode = "pager"
+requires = ["pr_url"]

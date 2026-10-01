@@ -1,0 +1,27 @@
+# herdr plugin manifest.
+# Install: herdr plugin install kakigakki/lazy-claude-herdr
+# Bind a key in ~/.config/herdr/config.toml:
+#   [[keys.command]]
+#   key = "prefix+f"
+#   type = "plugin_action"
+#   command = "lazy-claude-herdr.open"
+
+id = "lazy-claude-herdr"
+name = "lazy-claude-herdr"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Find a Claude Code session from any herdr space and resume it where it started."
+platforms = ["linux", "macos"]
+
+# Opens the picker as an overlay popup.
+[[actions]]
+id = "open"
+title = "lazy-claude-herdr: find a Claude session"
+command = ["sh", "scripts/open.sh"]
+
+# The popup itself. herdr closes it when the picker exits and restores focus.
+[[panes]]
+id = "picker"
+title = "lazy-claude-herdr"
+placement = "overlay"
+command = ["sh", "scripts/picker.sh"]
