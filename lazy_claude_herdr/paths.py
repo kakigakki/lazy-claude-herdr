@@ -27,3 +27,7 @@ def cache_dir() -> Path:
     if os.environ.get("LAZY_CLAUDE_HERDR_CACHE"):
         return Path(os.environ["LAZY_CLAUDE_HERDR_CACHE"])
     return _xdg("XDG_CACHE_HOME", ".cache") / APP
+
+
+def log_file() -> Path:
+    return cache_dir() / "lazy-claude-herdr.log"

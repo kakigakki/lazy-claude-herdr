@@ -29,35 +29,45 @@ def _unescape(raw: str) -> str:
         return raw
 
 
-def scan_file(path: Path) -> dict:
-    meta = dict.fromkeys(FIELDS)
+def _update_meta(line: str, meta: dict) -> None:
+    if not any(k in line[:80] for k in _TYPED):
+        # Message lines can carry megabytes of tool output; only regex them.
+        if '"type":"user"' in line[:400] or '"cwd":' in line[:600]:
+            if m := _CWD_RE.search(line):
+                meta["cwd"] = _unescape(m.group(1))
+            if m := _BRANCH_RE.search(line):
+                meta["branch"] = _unescape(m.group(1))
+            if not meta["entrypoint"] and (m := _ENTRY_RE.search(line)):
+                meta["entrypoint"] = m.group(1)
+        return
+    try:
+        d = json.loads(line)
+    except ValueError:
+        return
+    kind = d.get("type")
+    if kind == "ai-title":
+        meta["ai_title"] = d.get("aiTitle")
+    elif kind == "custom-title":
+        meta["custom_title"] = d.get("customTitle") or d.get("title")
+    elif kind == "last-prompt":
+        meta["last_prompt"] = d.get("lastPrompt")
+    elif kind == "pr-link":
+        meta["pr"] = d.get("prNumber")
+        meta["pr_url"] = d.get("prUrl")
+        meta["pr_repo"] = d.get("prRepository")
+
+
+def scan_file(path: Path, start: int = 0, base: dict | None = None) -> dict:
+    """Extract session metadata. `start`>0 scans only bytes appended since a prior
+    scan (seek is a line boundary: JSONL flushes whole lines), merging onto `base`
+    (the cached meta). This keeps active multi-MB transcripts from being re-read in
+    full every launch — the main source of picker lag."""
+    meta = dict(base) if base else dict.fromkeys(FIELDS)
     with path.open("r", encoding="utf-8", errors="replace") as f:
+        if start:
+            f.seek(start)
         for line in f:
-            if not any(k in line[:80] for k in _TYPED):
-                # Message lines can carry megabytes of tool output; only regex them.
-                if '"type":"user"' in line[:400] or '"cwd":' in line[:600]:
-                    if m := _CWD_RE.search(line):
-                        meta["cwd"] = _unescape(m.group(1))
-                    if m := _BRANCH_RE.search(line):
-                        meta["branch"] = _unescape(m.group(1))
-                    if not meta["entrypoint"] and (m := _ENTRY_RE.search(line)):
-                        meta["entrypoint"] = m.group(1)
-                continue
-            try:
-                d = json.loads(line)
-            except ValueError:
-                continue
-            kind = d.get("type")
-            if kind == "ai-title":
-                meta["ai_title"] = d.get("aiTitle")
-            elif kind == "custom-title":
-                meta["custom_title"] = d.get("customTitle") or d.get("title")
-            elif kind == "last-prompt":
-                meta["last_prompt"] = d.get("lastPrompt")
-            elif kind == "pr-link":
-                meta["pr"] = d.get("prNumber")
-                meta["pr_url"] = d.get("prUrl")
-                meta["pr_repo"] = d.get("prRepository")
+            _update_meta(line, meta)
     return meta
 
 
@@ -92,6 +102,9 @@ def load(max_age_days=None) -> list[dict]:
             if hit:  # keep the stale entry so a later "all periods" run can refresh it
                 new_cache[key] = hit
             continue
+        elif hit and st.st_size > hit["size"] and hit["meta"].get("cwd"):
+            # Appended since last scan: read only the new bytes, merge onto cached meta.
+            meta = scan_file(path, start=hit["size"], base=hit["meta"])
         else:
             meta = scan_file(path)
         new_cache[key] = {"mtime": st.st_mtime, "size": st.st_size, "meta": meta}

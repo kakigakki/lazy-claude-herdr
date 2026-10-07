@@ -244,7 +244,7 @@ class HerdrTest(Base):
         self.f.set_herdr(self.live_state(app, "live"))
         r = self.f.run("--do", "resume", "live")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(self.f.mutating_calls(), [["workspace", "focus", "W1"], ["agent", "focus", "term_1"]])
+        self.assertEqual(self.f.mutating_calls(), [["workspace", "focus", "W1"], ["agent", "focus", "W1:p1"]])
 
     def test_resume_stopped_session_splits_matching_space(self):
         app = self.f.workdir("app")

@@ -16,6 +16,7 @@ from typing import Callable
 from . import herdr, render, sessions, system
 from .config import VARIABLES, ConfigError
 from .i18n import t
+from .log import log
 
 # Keys the picker already uses (fzf defaults, our bindings, and keys herdr commonly
 # takes such as its ctrl-b prefix and ctrl-h/j/k/l pane navigation).
@@ -74,9 +75,14 @@ def resume(ctx, s):
         _exec_here(s["cwd"], ["claude", "-r", s["id"]])
     live = ctx.live(s)
     if live:
-        herdr.focus(live["workspace_id"], live["terminal_id"])
+        # focus the agent's pane (pane_id — same as open_pane uses; terminal_id is not
+        # what `herdr agent focus` expects, so the specific pane wasn't being focused).
+        log(f"resume: live session {s['id']} -> focus ws={live['workspace_id']} "
+            f"pane={live.get('pane_id')} cwd={s['cwd']}")
+        herdr.focus(live["workspace_id"], live.get("pane_id") or live.get("terminal_id"))
         print(t("moved_live", env=ctx.env_label(s), title=ctx.title(s)))
         return
+    log(f"resume: session {s['id']} not live -> open_pane cwd={s['cwd']}")
     open_pane(ctx, s, f"claude -r {s['id']}", ctx.title(s))
 
 
